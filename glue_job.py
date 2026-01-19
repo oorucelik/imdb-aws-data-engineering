@@ -1,5 +1,7 @@
+import json
 import sys
 import time
+import boto3
 import requests
 from datetime import datetime
 
@@ -20,13 +22,56 @@ job.init(args["JOB_NAME"], args)
 IMDB_API_HOST = "https://imdb236.p.rapidapi.com/api/imdb"
 TMDB_API_HOST = "https://api.themoviedb.org/3"
 
+IMDB_SECRET_ARN = (
+    "arn:aws:secretsmanager:eu-north-1:013486663648:secret:"
+    "events!connection/IMDB_API_CONNECTION/0c5b5d72-bfe0-40c3-b9c1-8f9e27caa807-8MWTDP"
+)
+TMDB_SECRET_ARN = (
+    "arn:aws:secretsmanager:eu-north-1:013486663648:secret:"
+    "events!connection/TMDB_API_CONNECTION/5788f53d-4460-45ed-90a8-088fb5c580ff-X79n8u"
+)
+
+
+def load_secret_json(secret_arn):
+    client = boto3.client("secretsmanager")
+    response = client.get_secret_value(SecretId=secret_arn)
+    secret_value = response.get("SecretString")
+    if not secret_value:
+        raise ValueError(f"SecretString missing for {secret_arn}")
+    return json.loads(secret_value)
+
+
+imdb_secret = load_secret_json(IMDB_SECRET_ARN)
+imdb_api_key = (
+    imdb_secret.get("apiKey")
+    or imdb_secret.get("X-RapidAPI-Key")
+    or imdb_secret.get("api_key")
+)
+if not imdb_api_key:
+    raise ValueError("IMDB API key missing from secret payload")
+
+tmdb_secret = load_secret_json(TMDB_SECRET_ARN)
+tmdb_token = (
+    tmdb_secret.get("token")
+    or tmdb_secret.get("authorization")
+    or tmdb_secret.get("Authorization")
+    or tmdb_secret.get("bearer")
+)
+if not tmdb_token:
+    raise ValueError("TMDB token missing from secret payload")
+tmdb_auth_header = (
+    tmdb_token
+    if tmdb_token.lower().startswith("bearer ")
+    else f"Bearer {tmdb_token}"
+)
+
 IMDB_HEADERS = {
-    "X-RapidAPI-Key": "<97e41473b2mshc7cd01c525c929fp1d1728jsnfde2aaa3d502>",
+    "X-RapidAPI-Key": imdb_api_key,
     "X-RapidAPI-Host": "imdb236.p.rapidapi.com",
 }
 
 TMDB_HEADERS = {
-    "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5NjMxNmUwMzAyZjlhZmI4YWQzYjI4ODg4MzA1NDdlNyIsIm5iZiI6MTc1MzY5MDI5Ny40NzMsInN1YiI6IjY4ODczMGI5MmY1OTFhZDhkMThhNzNhNCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.ZHHxXBJJ-0dueGaiJnEuna3pMtKoggIwVpq8hFUhAvw",
+    "Authorization": tmdb_auth_header,
     "accept": "application/json",
 }
 
