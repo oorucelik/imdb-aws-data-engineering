@@ -124,15 +124,6 @@
         "records.$": "$[*][*]"
       },
       "ResultPath": "$.content_ids",
-      "Next": "Stringify Content IDs"
-    },
-    "Stringify Content IDs": {
-      "Type": "Map",
-      "ItemsPath": "$.content_ids.records",
-      "ItemSelector": {
-        "line.$": "States.JsonToString($$.Map.Item.Value)"
-      },
-      "ResultPath": "$.content_ids.lines",
       "Next": "Write Content IDs To S3"
     },
     "Write Content IDs To S3": {
@@ -141,7 +132,7 @@
       "Parameters": {
         "Bucket": "oruc-imdb-lake",
         "Key": "raw/stg_contentIDs/data.json",
-        "Body.$": "States.ArrayToString($.content_ids.lines[*].line, '\\n')"
+        "Body.$": "$.content_ids.records"
       },
       "ResultPath": null,
       "Next": "Fetch Movie Popularity Map"
