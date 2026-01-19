@@ -23,7 +23,7 @@
             "Enrich Movies With TMDB": {
               "Type": "Map",
               "ItemsPath": "$.ResponseBody",
-              "MaxConcurrency": 2,
+              "MaxConcurrency": 1,
               "ItemSelector": {
                 "id.$": "$$.Map.Item.Value.id",
                 "type.$": "$$.Map.Item.Value.type"
@@ -39,9 +39,9 @@
                         "ErrorEquals": [
                           "States.Http.StatusCode.429"
                         ],
-                        "IntervalSeconds": 2,
+                        "IntervalSeconds": 5,
                         "BackoffRate": 2,
-                        "MaxAttempts": 5
+                        "MaxAttempts": 8
                       }
                     ],
                     "Parameters": {
@@ -90,7 +90,7 @@
             "Enrich Series With TMDB": {
               "Type": "Map",
               "ItemsPath": "$.ResponseBody",
-              "MaxConcurrency": 2,
+              "MaxConcurrency": 1,
               "ItemSelector": {
                 "id.$": "$$.Map.Item.Value.id",
                 "type.$": "$$.Map.Item.Value.type"
@@ -106,9 +106,9 @@
                         "ErrorEquals": [
                           "States.Http.StatusCode.429"
                         ],
-                        "IntervalSeconds": 2,
+                        "IntervalSeconds": 5,
                         "BackoffRate": 2,
-                        "MaxAttempts": 5
+                        "MaxAttempts": 8
                       }
                     ],
                     "Parameters": {
