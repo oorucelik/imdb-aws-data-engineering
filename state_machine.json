@@ -34,6 +34,16 @@
                   "Fetch Movie TMDB ID": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::http:invoke",
+                    "Retry": [
+                      {
+                        "ErrorEquals": [
+                          "States.Http.StatusCode.429"
+                        ],
+                        "IntervalSeconds": 2,
+                        "BackoffRate": 2,
+                        "MaxAttempts": 5
+                      }
+                    ],
                     "Parameters": {
                       "Authentication": {
                         "ConnectionArn": "arn:aws:events:eu-north-1:013486663648:connection/IMDB_API_CONNECTION/4e12b979-4c6f-4f4d-8461-8e8ccf88971a"
@@ -91,6 +101,16 @@
                   "Fetch Series TMDB ID": {
                     "Type": "Task",
                     "Resource": "arn:aws:states:::http:invoke",
+                    "Retry": [
+                      {
+                        "ErrorEquals": [
+                          "States.Http.StatusCode.429"
+                        ],
+                        "IntervalSeconds": 2,
+                        "BackoffRate": 2,
+                        "MaxAttempts": 5
+                      }
+                    ],
                     "Parameters": {
                       "Authentication": {
                         "ConnectionArn": "arn:aws:events:eu-north-1:013486663648:connection/IMDB_API_CONNECTION/4e12b979-4c6f-4f4d-8461-8e8ccf88971a"
