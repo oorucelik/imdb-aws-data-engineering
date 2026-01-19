@@ -1,0 +1,150 @@
+{
+  "Comment": "Fetch popular movies & series, enrich with TMDB IDs, write IDs to S3, then fetch TMDB popularity and write to S3",
+  "StartAt": "Fetch Popular Contents",
+  "States": {
+    "Fetch Popular Contents": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Fetch Popular Movies",
+          "States": {
+            "Fetch Popular Movies": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::http:invoke",
+              "Parameters": {
+                "Authentication": {
+                  "ConnectionArn": "arn:aws:events:eu-north-1:013486663648:connection/IMDB_API_CONNECTION/4e12b979-4c6f-4f4d-8461-8e8ccf88971a"
+                },
+                "Method": "GET",
+                "ApiEndpoint": "https://imdb236.p.rapidapi.com/api/imdb/most-popular-movies"
+              },
+              "Next": "Enrich Movies With TMDB"
+            },
+            "Enrich Movies With TMDB": {
+              "Type": "Map",
+              "ItemsPath": "$.ResponseBody",
+              "MaxConcurrency": 2,
+              "ItemSelector": {
+                "id.$": "$$.Map.Item.Value.id",
+                "type.$": "$$.Map.Item.Value.type"
+              },
+              "Iterator": {
+                "StartAt": "Fetch Movie TMDB ID",
+                "States": {
+                  "Fetch Movie TMDB ID": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::http:invoke",
+                    "Parameters": {
+                      "Authentication": {
+                        "ConnectionArn": "arn:aws:events:eu-north-1:013486663648:connection/IMDB_API_CONNECTION/4e12b979-4c6f-4f4d-8461-8e8ccf88971a"
+                      },
+                      "Method": "GET",
+                      "ApiEndpoint.$": "States.Format('https://imdb236.p.rapidapi.com/api/imdb/{}/tmdb-id', $.id)"
+                    },
+                    "ResultPath": "$.tmdb",
+                    "ResultSelector": {
+                      "tmdb_id.$": "$.ResponseBody.tmdbId"
+                    },
+                    "Next": "Build Movie Final Record"
+                  },
+                  "Build Movie Final Record": {
+                    "Type": "Pass",
+                    "Parameters": {
+                      "id.$": "$.id",
+                      "type.$": "$.type",
+                      "tmdb_id.$": "$.tmdb.tmdb_id"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "Fetch Popular Series",
+          "States": {
+            "Fetch Popular Series": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::http:invoke",
+              "Parameters": {
+                "Authentication": {
+                  "ConnectionArn": "arn:aws:events:eu-north-1:013486663648:connection/IMDB_API_CONNECTION/4e12b979-4c6f-4f4d-8461-8e8ccf88971a"
+                },
+                "Method": "GET",
+                "ApiEndpoint": "https://imdb236.p.rapidapi.com/api/imdb/most-popular-tv"
+              },
+              "Next": "Enrich Series With TMDB"
+            },
+            "Enrich Series With TMDB": {
+              "Type": "Map",
+              "ItemsPath": "$.ResponseBody",
+              "MaxConcurrency": 2,
+              "ItemSelector": {
+                "id.$": "$$.Map.Item.Value.id",
+                "type.$": "$$.Map.Item.Value.type"
+              },
+              "Iterator": {
+                "StartAt": "Fetch Series TMDB ID",
+                "States": {
+                  "Fetch Series TMDB ID": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::http:invoke",
+                    "Parameters": {
+                      "Authentication": {
+                        "ConnectionArn": "arn:aws:events:eu-north-1:013486663648:connection/IMDB_API_CONNECTION/4e12b979-4c6f-4f4d-8461-8e8ccf88971a"
+                      },
+                      "Method": "GET",
+                      "ApiEndpoint.$": "States.Format('https://imdb236.p.rapidapi.com/api/imdb/{}/tmdb-id', $.id)"
+                    },
+                    "ResultPath": "$.tmdb",
+                    "ResultSelector": {
+                      "tmdb_id.$": "$.ResponseBody.tmdbId"
+                    },
+                    "Next": "Build Series Final Record"
+                  },
+                  "Build Series Final Record": {
+                    "Type": "Pass",
+                    "Parameters": {
+                      "id.$": "$.id",
+                      "type.$": "$.type",
+                      "tmdb_id.$": "$.tmdb.tmdb_id"
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultSelector": {
+        "records.$": "$[*][*]"
+      },
+      "ResultPath": "$.content_ids",
+      "Next": "Stringify Content IDs"
+    },
+    "Stringify Content IDs": {
+      "Type": "Map",
+      "ItemsPath": "$.content_ids.records",
+      "ItemSelector": {
+        "line.$": "States.JsonToString($$.Map.Item.Value)"
+      },
+      "ResultPath": "$.content_ids.lines",
+      "Next": "Write Content IDs To S3"
+    },
+    "Write Content IDs To S3": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:s3:putObject",
+      "Parameters": {
+        "Bucket": "oruc-imdb-lake",
+        "Key": "raw/stg_contentIDs/data.json",
+        "Body.$": "States.ArrayToString($.content_ids.lines[*].line, '\\n')"
+      },
+      "ResultPath": null,
+      "Next": "Fetch Movie Popularity Map"
+    }
+  }
+}
